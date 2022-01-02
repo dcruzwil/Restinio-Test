@@ -14,11 +14,11 @@ int multiple_app_instances(int portno) {
     auto router = std::make_unique<router::express_router_t<>>();
     router->http_get(
         "/",
-        [](auto req, auto params) {
+        [portno](auto req, auto params) {
             const auto qp = parse_query(req->header().query());
             return req->create_response()
                 .set_body(
-                    "Hello World"
+                    "Hello World " + std::to_string(portno)
                     /*fmt::format("meter_id={} (year={}/mon={}/day={})",
                         cast_to<int>(params["meter_id"]),
                         opt_value<int>(qp, "year"),
@@ -42,6 +42,8 @@ int multiple_app_instances(int portno) {
         restinio::on_this_thread<my_server_traits>()
         .address("localhost")
         .port(portno)
+        .handle_request_timeout(std::chrono::milliseconds(10000))
+        .separate_accept_and_create_connect(true)
         .request_handler(std::move(router)));
 
     return 0;
