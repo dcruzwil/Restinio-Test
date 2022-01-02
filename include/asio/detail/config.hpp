@@ -12,7 +12,7 @@
 #define ASIO_DETAIL_CONFIG_HPP
 
 // boostify: non-boost code starts here
-#if !!defined(VCPKG_DISABLE_ASIO_STANDALONE)
+#if !defined(ASIO_STANDALONE)
 # if !defined(ASIO_ENABLE_BOOST)
 #  if (__cplusplus >= 201103)
 #   define ASIO_STANDALONE 1
@@ -22,10 +22,10 @@
 #   endif // (_MSC_VER >= 1900) && (_MSVC_LANG >= 201103)
 #  endif // defined(_MSC_VER) && defined(_MSVC_LANG)
 # endif // !defined(ASIO_ENABLE_BOOST)
-#endif // !!defined(VCPKG_DISABLE_ASIO_STANDALONE)
+#endif // !defined(ASIO_STANDALONE)
 
 // boostify: non-boost code ends here
-#if !defined(VCPKG_DISABLE_ASIO_STANDALONE)
+#if defined(ASIO_STANDALONE)
 # define ASIO_DISABLE_BOOST_ALIGN 1
 # define ASIO_DISABLE_BOOST_ARRAY 1
 # define ASIO_DISABLE_BOOST_ASSERT 1
@@ -37,11 +37,11 @@
 # define ASIO_DISABLE_BOOST_STATIC_CONSTANT 1
 # define ASIO_DISABLE_BOOST_THROW_EXCEPTION 1
 # define ASIO_DISABLE_BOOST_WORKAROUND 1
-#else // !defined(VCPKG_DISABLE_ASIO_STANDALONE)
+#else // defined(ASIO_STANDALONE)
 # include <boost/config.hpp>
 # include <boost/version.hpp>
 # define ASIO_HAS_BOOST_CONFIG 1
-#endif // !defined(VCPKG_DISABLE_ASIO_STANDALONE)
+#endif // defined(ASIO_STANDALONE)
 
 // Default to a header-only implementation. The user must specifically request
 // separate compilation by defining either ASIO_SEPARATE_COMPILATION or
@@ -617,9 +617,11 @@
 #  if (__cplusplus >= 201703)
 #   if defined(__clang__)
 #    if defined(ASIO_HAS_CLANG_LIBCXX)
-#     if (_LIBCPP_STD_VER > 14) && defined(_LIBCPP_HAS_ALIGNED_ALLOC)
+#     if (_LIBCPP_STD_VER > 14) && defined(_LIBCPP_HAS_ALIGNED_ALLOC) \
+        && !defined(_LIBCPP_MSVCRT) && !defined(__MINGW32__)
 #      define ASIO_HAS_STD_ALIGNED_ALLOC 1
 #     endif // (_LIBCPP_STD_VER > 14) && defined(_LIBCPP_HAS_ALIGNED_ALLOC)
+            //   && !defined(_LIBCPP_MSVCRT) && !defined(__MINGW32__)
 #    elif defined(_GLIBCXX_HAVE_ALIGNED_ALLOC)
 #     define ASIO_HAS_STD_ALIGNED_ALLOC 1
 #    endif // defined(_GLIBCXX_HAVE_ALIGNED_ALLOC)
@@ -1213,6 +1215,13 @@
 #    define ASIO_HAS_STD_INVOKE_RESULT 1
 #   endif // (_MSC_VER >= 1911 && _MSVC_LANG >= 201703)
 #  endif // defined(ASIO_MSVC)
+#  if defined(ASIO_HAS_CLANG_LIBCXX)
+#   if (_LIBCPP_VERSION >= 13000)
+#    if (__cplusplus >= 202002)
+#     define ASIO_HAS_STD_INVOKE_RESULT 1
+#    endif // (__cplusplus >= 202002)
+#   endif // (_LIBCPP_VERSION >= 13000)
+#  endif // defined(ASIO_HAS_CLANG_LIBCXX)
 # endif // !defined(ASIO_DISABLE_STD_INVOKE_RESULT)
 #endif // !defined(ASIO_HAS_STD_INVOKE_RESULT)
 
@@ -1480,6 +1489,13 @@
 # endif // !defined(ASIO_HAS_TIMERFD)
 #endif // defined(__linux__)
 
+// Linux: io_uring is used instead of epoll.
+#if !defined(ASIO_HAS_IO_URING_AS_DEFAULT)
+# if !defined(ASIO_HAS_EPOLL) && defined(ASIO_HAS_IO_URING)
+#  define ASIO_HAS_IO_URING_AS_DEFAULT 1
+# endif // !defined(ASIO_HAS_EPOLL) && defined(ASIO_HAS_IO_URING)
+#endif // !defined(ASIO_HAS_IO_URING_AS_DEFAULT)
+
 // Mac OS X, FreeBSD, NetBSD, OpenBSD: kqueue.
 #if (defined(__MACH__) && defined(__APPLE__)) \
   || defined(__FreeBSD__) \
@@ -1580,6 +1596,34 @@
 #  endif // !defined(ASIO_WINDOWS_RUNTIME)
 # endif // !defined(ASIO_DISABLE_LOCAL_SOCKETS)
 #endif // !defined(ASIO_HAS_LOCAL_SOCKETS)
+
+// Files.
+#if !defined(ASIO_HAS_FILE)
+# if !defined(ASIO_DISABLE_FILE)
+#  if defined(ASIO_HAS_WINDOWS_RANDOM_ACCESS_HANDLE)
+#   define ASIO_HAS_FILE 1
+#  elif defined(ASIO_HAS_IO_URING)
+#   define ASIO_HAS_FILE 1
+#  endif // defined(ASIO_HAS_IO_URING)
+# endif // !defined(ASIO_DISABLE_FILE)
+#endif // !defined(ASIO_HAS_FILE)
+
+// Pipes.
+#if !defined(ASIO_HAS_PIPE)
+# if defined(ASIO_HAS_IOCP) \
+  || !defined(ASIO_WINDOWS) \
+  && !defined(ASIO_WINDOWS_RUNTIME) \
+  && !defined(__CYGWIN__)
+#  if !defined(__SYMBIAN32__)
+#   if !defined(ASIO_DISABLE_PIPE)
+#    define ASIO_HAS_PIPE 1
+#   endif // !defined(ASIO_DISABLE_PIPE)
+#  endif // !defined(__SYMBIAN32__)
+# endif // defined(ASIO_HAS_IOCP)
+        //   || !defined(ASIO_WINDOWS)
+        //   && !defined(ASIO_WINDOWS_RUNTIME)
+        //   && !defined(__CYGWIN__)
+#endif // !defined(ASIO_HAS_PIPE)
 
 // Can use sigaction() instead of signal().
 #if !defined(ASIO_HAS_SIGACTION)
